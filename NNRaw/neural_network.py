@@ -6,9 +6,22 @@ import numpy as np
 # Cada função retorna também sua derivada, usada no backpropagation.
 # =============================================================================
 
+class Linear:
+    """
+    Ativação identidade: f(x) = x
+    """
+    def forward(self, z):
+        return z
+
+    def backward(self, grad):
+        return grad
+
+    def __repr__(self):
+        return "Linear"
+    
 class ReLU:
     """
-    Rectified Linear Unit: f(x) = max(0, x)
+    Rectified Linear Unit (ReLU): f(x) = max(0, x)
     Use para todas as camadas ocultos
 
     """
@@ -27,7 +40,7 @@ class ReLU:
 class Sigmoid:
     """
     Sigmoid: f(x) = 1 / (1 + e^(-x))
-    - Saída entre 0 e 1 — boa para classificação binária na camada final
+    - Saída entre 0 e 1, boa para classificação binária na camada final
     """
     def forward(self, z):
         # Clipa para evitar overflow numérico
@@ -78,12 +91,55 @@ class Softmax:
         return "Softmax"
 
 
+class LeakyReLU:
+    """
+    Leaky ReLU: f(x) = x se x > 0, senão alfa * x
+    - Permite gradiente negativo quando x <= 0
+    """
+    def __init__(self, alpha=0.01):
+        self.alpha = alpha
+
+    def forward(self, z):
+        self.z = z
+        return np.where(z > 0, z, self.alpha * z)
+
+    def backward(self, grad):
+        dz = np.where(self.z > 0, 1.0, self.alpha)
+        return grad * dz
+
+    def __repr__(self):
+        return f"LeakyReLU(alfa = {self.alpha})"
+
+
+class ELU:
+    """
+    Exponential Linear Unit (ELU) f(x) = x se x > 0, senão alfa*(e^x - 1).
+    - Empurra a média das ativações para perto de zero e acelera o aprendizado.
+    """
+    def __init__(self, alpha=1.0):
+        self.alpha = alpha
+
+    def forward(self, z):
+        self.z = z
+        return np.where(z > 0, z, self.alpha * (np.exp(z) - 1))
+
+    def backward(self, grad):
+        dz = np.where(self.z > 0, 1.0, self.alpha * np.exp(self.z))
+        return grad * dz
+
+    def __repr__(self):
+        return f"ELU(alfa = {self.alpha})"
+
+
 # Mapa de strings para classes de ativação
 ATIVACOES = {
-    "relu":    ReLU,
+    "linear": Linear,
+    "relu": ReLU,
     "sigmoid": Sigmoid,
-    "tanh":    Tanh,
+    "tanh": Tanh,
     "softmax": Softmax,
+    "leaky_relu": LeakyReLU,
+    "elu": ELU,
 }
 
 
@@ -194,7 +250,7 @@ class CamadaDensa:
         return self.saida
 
     def backward(self, grad_saida):
-        #Retropropagação
+        # Retropropagação
         # Gradiente após a ativação
         grad_z = self.ativacao_fn.backward(grad_saida)
 
@@ -265,7 +321,7 @@ class RedeNeural:
     def treinar(self, X, y, epocas, taxa_aprendizado,
                 tamanho_batch=32, X_val=None, y_val=None, verbose=True):
         
-        #Loop de treinamento com mini-batches.
+        # Loop de treinamento com mini-batches.
 
         n = X.shape[0]
 
@@ -314,14 +370,12 @@ class RedeNeural:
                 print(msg)
 
     def prever(self, X):
-        #Retorna as saídas brutas da rede (logits ou probabilidades).
+        # Retorna as saídas brutas da rede (logits ou probabilidades).
         return self.forward(X)
 
     def resumo(self):
-        #Resumo da arquitetura da rede
-        print("=" * 55)
+        # Resumo da arquitetura da rede
         print(f"{'ARQUITETURA DA REDE NEURAL':^55}")
-        print("=" * 55)
         total_params = 0
         for i, camada in enumerate(self.camadas):
             n_w = camada.W.size
@@ -331,8 +385,6 @@ class RedeNeural:
             print(f"  Camada {i+1}: {camada.W.shape[0]:>4} → {camada.W.shape[1]:<4} "
                   f"| Ativação: {camada.ativacao_fn} "
                   f"| Parâmetros: {total}")
-        print("-" * 55)
         print(f"  {'Total de parâmetros:':45} {total_params}")
         print(f"  {'Função de perda:':45} {type(self.fn_perda).__name__}")
-        print("=" * 55)
 
